@@ -1,0 +1,21 @@
+# proposal-generator-cn bundle patch — 项目书生成技能，安装为 profile bundle 层。
+# 用法：dsh plugin --profile <name> add <本包绝对路径或 github:owner/repo>
+#
+# 本层插入独立的技能扫描 provider：includeDefaultRoots: false + 唯一 providerName
+# 使其只扫描随包发行的 skills/ 目录，不与基础文件系统 provider 冲突。
+# 技能可被任意 profile（web / desktop / headless）加载。
+
+- insert:
+    - id: skill-filesystem-proposal-generator-cn
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: proposal-generator-cn
+        includeDefaultRoots: false
+        customSkillDirs:
+          - !!js >-
+            process.getBuiltinModule('node:path').join(
+              process.getBuiltinModule('node:path').dirname(
+                process.getBuiltinModule('node:module').createRequire(baseUrl + 'package.json').resolve('proposal-generator-cn/package.json')
+              ),
+              'skills'
+            )

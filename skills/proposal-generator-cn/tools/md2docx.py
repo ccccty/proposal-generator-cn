@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import re, sys, os
 from docx import Document
-from docx.shared import Pt, Cm
+from docx.shared import Pt, Cm, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
@@ -120,7 +120,7 @@ def parse_table(lines, i):
         i += 1
     return rows, i
 
-def build(md, out, title=None):
+def build(md, out, title=None, base_dir=None):
     doc = Document()
     sec = doc.sections[0]
     sec.left_margin = Cm(3.0); sec.right_margin = Cm(3.0)
@@ -174,6 +174,20 @@ def build(md, out, title=None):
             else:
                 para(doc, txt, FONT_BODY, 12, bold=True, indent_chars=2)
             i += 1; continue
+        m_img = re.match(r'^!\[(.+?)\]\((.+?)\)', s)
+        if m_img:
+            caption, img_rel = m_img.group(1).strip(), m_img.group(2).strip()
+            img_path = img_rel if os.path.isabs(img_rel) else os.path.join(base_dir or '.', img_rel)
+            if os.path.isfile(img_path):
+                p = doc.add_paragraph()
+                p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+                p.add_run().add_picture(img_path, width=Inches(5.5))
+                para(doc, caption, FONT_H1, 10.5, align=WD_ALIGN_PARAGRAPH.CENTER, indent_chars=0,
+                     space_before=2, space_after=6)
+            else:
+                para(doc, '[图片缺失: ' + img_rel + ']', FONT_BODY, 12, indent_chars=2)
+            i += 1; continue
         if re.match(r'^图\s?\d|^表\s?\d', s):
             para(doc, s, FONT_H2, 10.5, align=WD_ALIGN_PARAGRAPH.CENTER, indent_chars=0,
                  space_before=2, space_after=6); i += 1; continue
@@ -202,5 +216,5 @@ if __name__ == '__main__':
     if m:
         title = m.group(1).strip()
         md = md[:m.start()] + md[m.end():]
-    build(md, dst, title)
+    build(md, dst, title, base_dir=os.path.dirname(os.path.abspath(src)))
     print('saved', dst, os.path.getsize(dst))

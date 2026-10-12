@@ -194,12 +194,12 @@ def build(md, out, title=None, base_dir=None):
         if s.startswith(chr(62)):
             para(doc, s.lstrip(chr(62) + ' ').strip(), FONT_H2, 12, indent_chars=2); i += 1; continue
         if s.startswith(chr(60)+chr(60)+'EQ_DISPLAY:') and LXML_OK:
-            expr = s[14:-2].replace(chr(92)+chr(92), chr(92))
+            expr = s[13:-2].replace(chr(92)+chr(92), chr(92))
             p = para(doc, '', FONT_BODY, 12, align=WD_ALIGN_PARAGRAPH.CENTER, indent_chars=0, space_before=2, space_after=2)
             _insert_omml(p, latex_to_omml_para(expr), display=True)
             i += 1; continue
         if s.startswith(chr(60)+chr(60)+'EQ_INLINE:') and LXML_OK:
-            expr = s[13:-2].replace(chr(92)+chr(92), chr(92))
+            expr = s[12:-2].replace(chr(92)+chr(92), chr(92))
             p = para(doc, '', FONT_BODY, 12, indent_chars=2, space_before=0, space_after=0)
             _insert_omml(p, latex_to_omml_inline(expr), display=False)
             i += 1; continue

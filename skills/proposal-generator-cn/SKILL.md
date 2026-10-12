@@ -122,11 +122,18 @@ description: 拿到国防科技173计划、装备预研共用技术"快速支持
 | 函数名 | `\log \ln \sin \cos \tan \exp \max \min \lim` | `$10\log_{10}(N)$`, `$\exp(-x)$` |
 | 符号 | `\infty \partial \nabla \rightarrow \Rightarrow` | `$T \rightarrow \infty$` |
 | 积分/求和 | `\int_{a}^{b} \sum_{i=1}^{n}` | `$$\int_{T}^{\infty} p(x)dx$$`（注：积分在当前引擎中以行内文本渲染，不建 n-ary 结构） |
+| 定界符 | `\left( \right) \left[ \right] \left\{ \right\} \left| \right|`（支持嵌套配对） | `$$\left(\frac{x}{2}\right)$$` |
+| 范数 | 成对 `\| ... \|` | `$\|\mathbf{f}_i - \mathbf{f}_j\|_2$` |
+| 粗体向量 | `\mathbf{x}` | `$\mathbf{w}^H\mathbf{x}$` |
+| 重音符 | `\hat{x}`（抑扬符）、`\bar{x}`（上横线） | `$\hat{P}_{fa}$` |
+| 正体 | `\mathrm{...}`、`\text{...}` | `$\mathrm{d}x$` |
+| 空格 | `\quad`（1 全角）、`\qquad`（2 全角） | `$$a, \quad b$$` |
+| 函数名（正体） | `\arg \max \min \log \ln \sin \cos \tan \exp \det \lim` | `$\arg\max_\tau R(\tau)$` |
 
 **密度要求**：研究内容章的每个分技术至少 3-5 个核心公式（探测方程、门限计算、滤波递推、损失函数等），技术指标论证段的关键计算也应公式化。总量目标 25-35 个公式（独立行 `$$...$$` 与行内 `$...$` 混合）。允许使用 `\hat{}`、`\bar{}`、`\mathrm{}`、`\text{}` 等排版命令——转换器不支持的命令会在生成时自动降级为最接近的 OMML 形式，不会报错中断。用户可后期在 Word 中统一调整公式样式。
 
 **不支持的命令（不得出现在正文中，否则 docx 转换将丢失或乱码）：**
-`\hat{x}`, `\bar{x}`, `\tilde{x}`, `\vec{x}`（重音符）；`\mathrm{...}`, `\text{...}`, `\operatorname{...}`（字体切换）；`\begin{cases}`, `\pmatrix{}`, `\bmatrix{}`（矩阵结构）；`\left`, `\right`（自动缩放——会被转换器剥离，普通括号直接用）。
+`\tilde{x}`, `\vec{x}`（重音符中仅 `\hat`、`\bar` 受支持）；`\operatorname{...}`；`\begin{cases}`, `\pmatrix{}`, `\bmatrix{}`（矩阵结构）。
 
 **公式撰写四原则：**
 

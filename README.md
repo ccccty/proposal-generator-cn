@@ -1,4 +1,6 @@
 # 项目书生成（proposal-generator-cn）
+> **一键安装**：已在 [DSH Market](https://dsh.market/) 收录（搜索「proposal-generator-cn」或「项目书」），市场面板里点安装即可。也可手动：`npx @deepseek-ai/dsh plugin --profile desktop add ccccty/proposal-generator-cn`
+
 
 DSH（DeepSeek Harness）插件：把「项目申报书」写作技能装进你的 DSH。
 

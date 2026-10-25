@@ -1,0 +1,32 @@
+{
+  "fonts": {
+    "body": "宋体",
+    "heading": "黑体",
+    "subheading": "楷体",
+    "table": "宋体",
+    "caption": "宋体",
+    "title": "黑体",
+    "latin": "Times New Roman"
+  },
+  "sizes": {
+    "body": 12,
+    "h1": 14,
+    "h2": 12,
+    "h3": 12,
+    "table": 10.5,
+    "caption": 10.5,
+    "title": 18,
+    "toc_title": 16
+  },
+  "margins_cm": {
+    "top": 2.5,
+    "bottom": 2.5,
+    "left": 2.8,
+    "right": 2.8
+  },
+  "line_spacing": 1.5,
+  "first_line_indent_chars": 2,
+  "image_width_in": 5.5,
+  "toc_levels": 3,
+  "page_break_token": "<<PAGEBREAK>>"
+}

@@ -293,6 +293,53 @@ def check_hedge(text):
     return findings
 
 
+def check_formula_layout(text):
+    """符号说明被写成独立公式行（一个符号一段、一句解释一段）。"""
+    findings = []
+    lines = text.split("\n")
+    # 独立行公式里出现"关系符/运算结构"才说明它是个式子；没有的视为单个符号被孤立。
+    OP_TOKENS = ("=", "<", ">", "\\leq", "\\geq", "\\le", "\\ge", "\\approx",
+                 "\\to", "\\rightarrow", "\\Rightarrow", "\\pm", "\\mp", "^",
+                 "\\frac", "\\dfrac", "\\sqrt", "\\sum", "\\int", "\\prod",
+                 "\\lim", "\\log", "\\exp", "\\left", "\\begin", "\\cdot", "\\times")
+    for idx, line in enumerate(lines):
+        s = line.strip()
+        # 1) 孤立的"其中"：下一非空行就是独立公式
+        if re.fullmatch(r"其中\s*[:：]?", s):
+            nxt = ""
+            for k in range(idx + 1, min(idx + 4, len(lines))):
+                if lines[k].strip():
+                    nxt = lines[k].strip()
+                    break
+            if nxt.startswith("$$"):
+                findings.append({
+                    "level": "error",
+                    "rule": "公式#1 符号说明被排成竖列",
+                    "line": idx + 1,
+                    "detail": "「其中」独占一段，紧随单个符号公式；应连写成一句，符号用 $...$ 行内",
+                })
+            continue
+        # 2) 孤立成行的顿号/逗号（并列符号被拆行的残留）
+        if re.fullmatch(r"[、，,]\s*", s):
+            findings.append({
+                "level": "error",
+                "rule": "公式#1 符号说明被排成竖列",
+                "line": idx + 1,
+                "detail": "出现只含标点的段落，说明并列符号被逐行拆开",
+            })
+            continue
+        # 3) 单符号独立公式：$$ 包裹且内部没有任何关系符/运算结构
+        m = re.fullmatch(r"\$\$(.{1,40}?)\$\$", s)
+        if m and not any(t in m.group(1) for t in OP_TOKENS):
+            findings.append({
+                "level": "warn",
+                "rule": "公式#1 单符号独立成行",
+                "line": idx + 1,
+                "detail": "%s；若只是解释符号，应写进「其中 $…$ 为 …」的句子里" % s[:40],
+            })
+    return findings
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="申报正文自检（文体/指标/图表/经费/篇幅）")
     ap.add_argument("input", help="待检查的 .md 文件")
@@ -311,7 +358,8 @@ def main(argv=None):
         checks = [check_figures]
     else:
         checks = [check_forbidden, check_baseline, check_figures,
-                  check_budget, check_ratio, check_structure, check_hedge]
+                  check_budget, check_ratio, check_structure, check_hedge,
+                  check_formula_layout]
     for fn in checks:
         findings.extend(fn(text))
 

@@ -31,6 +31,7 @@ from docx.shared import Cm, Inches, Pt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from latex_omml import (  # noqa: E402
+    EQ_INLINE,
     extract_equations,
     latex_to_omml_inline,
     latex_to_omml_para,
@@ -157,15 +158,7 @@ class Builder:
         self._indent(p, indent_chars)
         if outline is not None:
             self._outline(p, outline)
-        for seg in BOLD_SEP.split(text):
-            if not seg:
-                continue
-            b = bold
-            s_txt = seg
-            if seg.startswith("**") and seg.endswith("**") and len(seg) > 4:
-                s_txt = seg[2:-2]
-                b = True
-            self.set_run(p.add_run(s_txt), cn, size, b)
+        self._emit_rich(p, text, cn, size, bold)
         STATS["paragraphs"] += 1
         return p
 
@@ -203,15 +196,7 @@ class Builder:
                 p.paragraph_format.space_after = Pt(1)
                 if i == 0:
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                for seg in BOLD_SEP.split(txt):
-                    if not seg:
-                        continue
-                    b = (i == 0)
-                    s_txt = seg
-                    if seg.startswith("**") and seg.endswith("**") and len(seg) > 4:
-                        s_txt = seg[2:-2]
-                        b = True
-                    self.set_run(p.add_run(s_txt), f["table"], size, b)
+                self._emit_rich(p, txt, f["table"], size, bold=(i == 0))
         STATS["tables"] += 1
         return t
 
@@ -222,12 +207,41 @@ class Builder:
             if display:
                 p._p.append(node)
             else:
-                run = p.add_run()
-                run._r.append(node)
+                # m:oMath 是 w:p 的直接子元素，必须与 w:r 平级插入；
+                # 放进 w:r 内部虽然 Word 可能容忍，但会给后续编辑带来结构问题。
+                p._p.append(node)
             STATS["equations"] += 1
         except Exception as exc:  # pragma: no cover - defensive
             warn("equation", "公式渲染失败：%s" % str(exc)[:60])
             p.add_run("[公式解析失败]")
+
+    def _inline_math(self, p, expr):
+        bad = unknown_commands(expr)
+        if bad:
+            warn("latex", "不支持的公式命令 %s（原文：%s）" % ("、".join(bad), expr[:60]))
+        self._insert_omml(p, latex_to_omml_inline(expr), display=False)
+
+    def _emit_rich(self, p, text, cn, size, bold=False):
+        """把一段文字就地写进段落：**加粗** 与 $行内公式$ 都不拆段、不换行。
+
+        行内公式必须落在它所在的句子里——「其中 $G_{geo}$ 为由…，$T_{man}$ 为…」
+        整句是一个段落，公式以 OMML 对象嵌在文字之间，不能各自独立成行。
+        """
+        for seg in BOLD_SEP.split(text):
+            if not seg:
+                continue
+            b = bold
+            if seg.startswith("**") and seg.endswith("**") and len(seg) > 4:
+                seg = seg[2:-2]
+                b = True
+            pos = 0
+            for m in EQ_INLINE.finditer(seg):
+                if m.start() > pos:
+                    self.set_run(p.add_run(seg[pos:m.start()]), cn, size, b)
+                self._inline_math(p, m.group(1).strip())
+                pos = m.end()
+            if pos < len(seg):
+                self.set_run(p.add_run(seg[pos:]), cn, size, b)
 
     # ---- block handlers --------------------------------------------
     def heading(self, level, text):
@@ -285,11 +299,8 @@ class Builder:
         self._insert_omml(p, latex_to_omml_para(expr), display=True)
 
     def equation_inline(self, expr):
-        bad = unknown_commands(expr)
-        if bad:
-            warn("latex", "不支持的公式命令 %s（原文：%s）" % ("、".join(bad), expr[:60]))
         p = self.para("", indent_chars=0)
-        self._insert_omml(p, latex_to_omml_inline(expr), display=False)
+        self._inline_math(p, expr)
 
 
 def parse_table(lines, i):
@@ -307,11 +318,26 @@ def parse_table(lines, i):
     return rows, i
 
 
-def _clean_inline(s):
-    s = s.replace("\ufeff", "")
+def _clean_text(s):
     s = CODE_SPAN.sub(r"\1", s)
     s = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", s)  # 正文里的链接只留文字
     return s
+
+
+def _clean_inline(s):
+    """剥离代码标记与链接文字，但 $...$ 内部原样保留。
+
+    公式里可能出现 \\left[ \\right] 之类的中括号，若整段一起过链接正则，
+    公式内容会被当作 markdown 链接吃掉。因此按公式切成片段，只清理公式外的文字。
+    """
+    s = s.replace("\ufeff", "")
+    out, pos = [], 0
+    for m in EQ_INLINE.finditer(s):
+        out.append(_clean_text(s[pos:m.start()]))
+        out.append(m.group(0))
+        pos = m.end()
+    out.append(_clean_text(s[pos:]))
+    return "".join(out)
 
 
 def build(md, out, title=None, base_dir=None, fmt=None, toc=True):
@@ -347,14 +373,18 @@ def build(md, out, title=None, base_dir=None, fmt=None, toc=True):
         warn("env", "缺少 lxml，公式将退化为文字（pip install lxml）")
 
     segs = extract_equations(md) if has_lxml else [("md", md)]
-    lines = []
+    # 只有独立行公式切成单独块；行内公式按原样拼回所在句子，交给 para() 就地渲染。
+    # 这里先按原文拼接再统一按行切分——否则「其中 $a$ 为…，$b$ 为…」会被拆成
+    # 文字/公式/文字三行，产出多个段落后公式各自独立成行。
+    buf = []
     for typ, content in segs:
         if typ == "md":
-            lines.extend(content.split("\n"))
+            buf.append(content)
         elif typ == "display":
-            lines.append("<<EQ_DISPLAY:" + content.replace("\\", "\\\\") + ">>")
+            buf.append("\n<<EQ_DISPLAY:" + content.replace("\\", "\\\\") + ">>\n")
         else:
-            lines.append("<<EQ_INLINE:" + content.replace("\\", "\\\\") + ">>")
+            buf.append("$" + content + "$")
+    lines = "".join(buf).split("\n")
 
     i = 0
     while i < len(lines):

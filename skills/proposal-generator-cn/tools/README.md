@@ -3,6 +3,7 @@
 | 脚本 | 作用 | 依赖 | 退出码 |
 |---|---|---|---|
 | `check_proposal.py` | 正文自检：11 条文体禁令、指标基线（五拍）、图表编号、经费勾稽、篇幅配比、章节完整性、对冲词密度 | 纯标准库 | 0 通过 / 1 有错误 / 2 用法错误 |
+| `check_style.py` | AI 味体检：破折号、否定对照、装饰符号（错误）；箭头、加粗小标签、空泛词、公文套话（警告） | 纯标准库 | 0 通过 / 1 有错误 / 2 用法错误 |
 | `md2docx.py` | Markdown → Word；公式转 Word 原生 OMML；图表题注；目录域；版面可配置 | `python-docx`、`lxml` | 0 / 1（`--strict` 有告警）/ 2 |
 | `verify_docx.py` | 交付件复查：公式残留反斜杠、题注重复、图片与题注数量、字体/字号/边距/行距实值 | 纯标准库（读 docx 包内 XML） | 0 / 1 / 2 |
 | `latex_omml.py` | 公式引擎（被 md2docx 调用，通常不直接跑） | 纯标准库 | - |
@@ -12,13 +13,15 @@
 
 1. `python` / `python3` / `py -3` 任一可用即可；
 2. 系统无 Python 时，用 DSH 的 `load_workspace_dependencies()` 返回的 python 路径（运行时事实）；
-3. 都没有：只有 `check_proposal.py` 可用，Word 转换与复查如实报告"未执行"。
+3. 都没有：`check_proposal.py` 与 `check_style.py` 仍可用（纯标准库），Word 转换与复查如实报告"未执行"。
 
 缺依赖：`<PY> -m pip install python-docx lxml`
 
-## 典型流程
+## 典型流程（顺序不可颠倒）
 
-    <PY> check_proposal.py 正文.md
+    # 0. 去 AI 味润色：加载 humanizer 改 正文.md，先存 草稿/正文.润色前.md（见 ../references/11）
+    <PY> check_style.py 正文.md         # AI 味体检：破折号/否定对照/装饰符号必须为 0
+    <PY> check_proposal.py 正文.md      # 文体/指标/图表/经费/篇幅
     <PY> md2docx.py 正文.md 正文.docx --strict
     <PY> verify_docx.py 正文.docx
 
@@ -39,3 +42,4 @@
 
     <PY> md2docx.py --print-default-config
     <PY> check_proposal.py ../templates/骨架A-项目建议书.md
+    <PY> check_style.py ../examples/五拍指标论证.md   # 示范文件：只提示不判失败，退出码 0

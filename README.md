@@ -1,79 +1,175 @@
 # 项目书生成（proposal-generator-cn）
 
-> **一键安装**：已在 [DSH Market](https://dsh.market/) 收录（搜索「proposal-generator-cn」或「项目书」），市场面板里点安装即可。也可手动：`npx @deepseek-ai/dsh plugin --profile desktop add ccccty/proposal-generator-cn`
+> **一键安装**：已在 [DSH Market](https://dsh.market/) 收录，市场面板搜索「proposal-generator-cn」或「项目书」即可安装。
+> 手动安装：`npx @deepseek-ai/dsh plugin --profile desktop add ccccty/proposal-generator-cn`
 
-DSH（DeepSeek Harness）插件：把「项目申报书」写作技能装进你的 DSH。
+DSH（DeepSeek Harness）技能 bundle：把军工/国家级科研项目的**项目建议书、立项论证、正式申报书、任务书**写作规范、可执行工具链与末道去 AI 味工序一起装进会话。
 
-## 它是什么
+适用体系：国防科技 173 计划、装备预研共用技术「快速支持」、军科委/国防科技创新快速响应小组、国防科工局基础科研、国家重点研发计划、国家自然科学基金。
 
-一个技能 bundle。安装后，你的 DSH 会话就能按**真实申报件的文体**写项目书：
+## 为什么需要它
 
-- **文体铁律**——正文零元信息（11 类禁止项）、指标五拍论证（数值 → 基线 → 为何不够 → 为何能超 → 因此定为该值）、研究内容占正文 60–70%、研究现状按技术演进链写
-- **公式规范**——`$$...$$` 与 `$...$` 转 Word 原生 OMML；命令白名单按实测维护，不支持的写法会被工具**叫停**而不是静默留在正文里
-- **10 份参考材料**——评分权重、骨架 A/B、写作要点、合规避坑、信源链接、真实申报件拆解、公式与转换器规范（约 600 KB）
-- **6 份可复制模板**——骨架 A/B、指标表、经费概算附件、随附清单、自检报告
-- **2 份文体样板**——五拍指标论证、研究现状演进链
-- **3 件套工具**——正文自检、Markdown→Word、成品 docx 复查
+AI 写项目书通常死在两处，而且这两处都不靠"再想一个更好的点子"解决：
+
+| 失败方式 | 具体表现 | 技能里的对策 |
+|---|---|---|
+| 文体不像真件 | 正文里带着【待核实】、来源标注、URL、自查表、AI 声明段落；指标只写"显著提升" | §1.1 的 11 条禁令 + `check_proposal.py` 逐条命中；不确定性全部剥到随附清单 |
+| 读起来像模板 | 否定对照、三连排比、破折号串接、加粗小标签、拔高意义、套话（深度融合 / 赋能） | 第 6 步调入 humanizer 去 AI 味 + `check_style.py` 机械判定 |
+
+写对方向、选对条目、把指标写成可考核的论证，是内容问题；这个技能把**内容之外的失败模式**尽量做成硬规则与脚本，让评委看到的第一眼是内行文本。
+
+一个参考事实：装备预研共用技术盲评 90 分里，「研究方案及技术途径」30 分 + 「创新性」30 分占三分之二，而"研究基础"在盲评里根本没有评分项。所以篇幅与论证的重量要压在方案与创新上，不是前期成果清单上。
+
+## 工作流：七步，末道是去 AI 味
+
+| 步 | 做什么 | 产出 |
+|---|---|---|
+| 1 | 选骨架（建议书 / 正式申报书，A 卷 / B 卷） | 带章节标题与字数预算的空骨架 |
+| 2 | 逐章写作（立项依据、研究目标、创新点、研究基础…） | 各章草稿，研究内容占正文 60–70% |
+| 3 | 指标可考核化（五拍论证 + 测试条件 + 判定准则） | 编号指标句 + 每指标一整段论证 |
+| 4 | 经费按体系选对科目表（装发部 10 项 / 173 直接费用 9 项 + 间接费用） | 正文概算表 + 经费测算附件 + 勾稽表 |
+| 5 | 合规自检（形式审查 14 条、盲评去身份化、AI 声明位次） | 独立的自检报告 |
+| **6** | **去 AI 味语言层润色（humanizer）** | 只改散文的润色稿 + diff 结论 |
+| 7 | 交付（正文、图表、清单、出处对照） | 可直接进入评审的成稿 |
+
+### 交付前四道关卡（顺序不可颠倒）
+
+| # | 关卡 | 通过标准 |
+|---|---|---|
+| 1 | humanizer 语言层润色 | 只动散文；数值、公式、编号、题注、表格 0 处改动 |
+| 2 | `check_style.py 正文.md` | 破折号、否定对照、装饰符号三类错误为 0 |
+| 3 | `check_proposal.py 正文.md` | 错误为 0；研究内容占比仍在 60–70% |
+| 4 | `md2docx.py --strict` + `verify_docx.py` | 无告警；成品无残留反斜杠、无重复题注 |
+
+第 6 步与第 2 道关卡是有意拆开的：先让模型按 humanizer 的规则改写，再用脚本数一遍，避免"感觉更自然了"当验收。
+
+## 与 humanizer 的关系
+
+去 AI 味这一步调用独立的 [blader/humanizer](https://github.com/blader/humanizer) 技能（基于 Wikipedia《Signs of AI writing》整理的 26 类痕迹）。**本仓库不分发它，也不修改它**，只约定项目书场景下的执行契约。
+
+### 交接契约
+
+| 允许改 | 禁止改 |
+|---|---|
+| 句子长短、语序、连接词、拆句合句、同义替换 | 章节编号体系（一、/（一）/1./1.1）、标题文字、节序 |
+| 段落切分与合并（不跨节）、删掉不承载信息的句子 | `$...$` 与 `$$...$$` 内部、表格结构与单元格内容、图号题注 |
+| 把套话换成文中已有的具体动作 | 数值、单位、标准号、型号、机构与学者姓名、指南原文、承诺书条款 |
+
+全文去空白字数下降超过 15%，按"删掉了论证"处理并回退；研究内容占比跌出 60–70% 同样视为失败。
+
+### 与项目书铁律冲突时，铁律优先
+
+humanizer 有两条规则会误杀项目书，必须显式保留：
+
+- **段落收束句**（「因此需要……」「实现……」「为本项目研究奠定了技术基础」）。它们承载新信息，也是评审要的闭环，humanizer 自身的 §2 允许这种例外。
+- **研究内容/创新点的「1. 2. 3.」编号并列**。这是条目结构，不是散文排比。
+
+反过来，humanizer 的「重述读者已知」（§26）在项目书里**不适用**：项目书是独立送审文本，评委没有任何上下文，该重述的背景必须留。完整对照表见 `skills/proposal-generator-cn/references/11-去AI味润色与humanizer交接.md` 的第 4 节。
+
+### 没装 humanizer 也能用
+
+技能内置 12 条降级清单（破折号、否定对照、加粗标签、套话、无主体"研究表明"……），可人工过一遍，交付说明注明「未加载 humanizer，按内置清单降级」。降级不影响前五步与自检链。
+
+DSH 里安装 humanizer 的可行做法：把 humanizer 仓库里的 `humanizer/` 目录（含 `SKILL.md`）放进 `~/.dsh/skills/`。其它宿主按它仓库 README 的方式装。
 
 ## 安装
 
-### 本地安装（已下载本目录）
+### 前置
 
-    dsh plugin --profile desktop add <本目录路径>
+- DSH（web / desktop / headless 任一 profile 均可；技能本身与 profile 无关）
+- Python 3.8+：`md2docx.py`、`verify_docx.py` 需要；`check_style.py` 与 `check_proposal.py` 是纯标准库，没 Python 也能用
+- 可选依赖：`python-docx`、`lxml`（Word 转换）、drawio CLI（技术路线图导出）、humanizer 技能（第 6 步）
 
-（把 desktop 换成你实际用的 profile；web 版就是 `--profile web`）
+### 四种装法
 
-### 从 GitHub 安装
+```text
+# 1) DSH Market：市场面板搜「项目书」或「proposal-generator-cn」
+# 2) npm 形式（已发布到市场索引）
+npx @deepseek-ai/dsh plugin --profile desktop add ccccty/proposal-generator-cn
+# 3) 直接从 GitHub
+dsh plugin --profile desktop add github:ccccty/proposal-generator-cn
+# 4) 本地目录（克隆后）
+dsh plugin --profile desktop add <本目录路径>
+```
 
-    dsh plugin --profile desktop add github:ccccty/proposal-generator-cn
+把 `desktop` 换成实际使用的 profile。装好后新开会话，技能扫描器会从这个 bundle 的 `skills/` 目录加载，不需要额外配置。
 
 ## 使用
 
-新开会话后直接说：
+直接用自然语言触发，例如：
 
 > 用 proposal-generator-cn 技能，根据这份指南写一份项目申报书
 
-或把指南文件丢给会话，技能会自动匹配触发。
+技能会先要四样东西：**当年度指南原文（脱密后）、本单位转发的模板原件、负责人资格与限项情况、截止时间（含校内截止）**。缺模板就先停下索取，不按"通用结构"动笔。
 
-## 工具用法（路径按当前技能目录相对解析，不写死盘符）
+交付物不止正文：
 
-先找到可用的 Python（`python` / `python3` / `py -3`；都没有时用 DSH 运行时给出的解释器），然后：
+- **正文**（零元信息，不带任何草稿痕迹）
+- **随附清单**（需确认数值 / 已删内容 / 待补附件 / 事实出处 / 程序性事项）
+- **独立自检报告**（11 条禁令、五拍、图表、经费、篇幅、去 AI 味）
+- **图源**（`图源/*.drawio`，框线图可后期手工调整）
+- 指标表、经费概算表与勾稽表、出处对照
 
-    <PY> tools/check_proposal.py 正文.md          # 文体/指标/图表/经费/篇幅自检（零依赖）
-    <PY> tools/md2docx.py 正文.md 正文.docx --strict
-    <PY> tools/verify_docx.py 正文.docx           # 复查成品：残留反斜杠、重复题注、字体边距
+## 工具
 
-调整排版（不改代码）：
+路径一律按当前技能目录相对解析，不写死盘符。
 
-    <PY> tools/md2docx.py --print-default-config > format.json
-    <PY> tools/md2docx.py 正文.md 正文.docx --config format.json --strict
+| 脚本 | 作用 | 依赖 | 退出码 |
+|---|---|---|---|
+| `tools/check_style.py` | AI 味体检：破折号、否定对照、装饰符号（错误级）；箭头、加粗小标签、空泛词、公文套话（警告级） | 纯标准库 | 0 / 1 / 2 |
+| `tools/check_proposal.py` | 正文自检：11 条文体禁令、指标基线、图表编号、经费勾稽、篇幅配比、章节完整性、对冲词密度、符号说明竖排 | 纯标准库 | 0 / 1 / 2 |
+| `tools/md2docx.py` | Markdown → Word；公式转原生 OMML；题注；目录域；版面可配置 | `python-docx`、`lxml` | 0 / 1 / 2 |
+| `tools/verify_docx.py` | 成品复查：公式残留反斜杠、题注重复、图片与题注数量、字体字号边距行距实值 | 纯标准库（读 docx 内 XML） | 0 / 1 / 2 |
+| `tools/latex_omml.py` | 公式引擎（被 md2docx 调用，通常不直接跑） | 纯标准库 | - |
 
-依赖：`md2docx.py` 需要 Python 3.8+ 与 `python-docx`、`lxml`；另外两个脚本零依赖。
-默认排版（宋体小四 / 黑体四号 / 页边距 2.5、2.8 cm / 1.5 倍行距）只是起点，**以本单位当年度模板为准**。
+```text
+<PY> tools/check_style.py 正文.md                  # 去 AI 味：错误必须为 0
+<PY> tools/check_proposal.py 正文.md               # 文体/指标/图表/经费/篇幅
+<PY> tools/md2docx.py 正文.md 正文.docx --strict    # 有告警即失败
+<PY> tools/verify_docx.py 正文.docx                # 不通过不许交付
+```
 
-## drawio（技术路线图导出）
+调整排版不改代码：
 
-不写死路径：依次看环境变量 `DRAWIO_BIN` → PATH 里的 `drawio` → 常见安装目录；都找不到就问用户要路径，或交付 `.drawio` 源文件由用户自行导出。
+```text
+<PY> tools/md2docx.py --print-default-config > format.json
+<PY> tools/md2docx.py 正文.md 正文.docx --config format.json --strict
+```
 
-## 技能名说明
-
-技能名必须是 kebab-case（`^[a-z0-9-]+$`），所以目录名是 `proposal-generator-cn` 而不是中文「项目书生成」。中文显示名在 description 里。
-
-## 发布到 dsh.so 市场
-
-1. 把本目录推到 GitHub 仓库（名字建议就叫 `proposal-generator-cn`）
-2. 在仓库加主题标签 `dsh-plugin`
-3. 市场索引会自动抓取，或向 dsh-market 的源列表提交你的仓库
+默认排版（标题黑体四号、正文宋体小四、页边距 2.5/2.8 cm）只是起点，**以本单位当年度转发模板的实际排版为准**。行距倍数这类原 PDF 不可辨识的数值，技能明确禁止凭经验填写。
 
 ## 目录结构
 
-    skills/proposal-generator-cn/
-    ├── SKILL.md              写作规则（12 节）
-    ├── references/           00–06、09、10 + 索引（07/08 空缺原因见 references/README.md）
-    ├── templates/            6 份可复制模板
-    ├── examples/             2 份文体样板
-    └── tools/                自检 / 转换 / 复查 / 公式引擎 / 默认排版配置
+```text
+skills/proposal-generator-cn/
+├── SKILL.md              12 节写作规则（文体铁律 / 工作流 / 评分导向 / 错误清单 / 工具链）
+├── references/           00–06、09、10、11 共 10 份参考材料 + 索引 + 内部口径台账
+│   ├── 00-评分与合规速查.md
+│   ├── 02-骨架A-项目建议书与立项论证.md
+│   ├── 03-骨架B-正式申报书与任务书.md
+│   ├── 05-评审与合规避坑.md        形式审查 14 条雷区
+│   ├── 09-真实申报件写作与格式拆解.md  文体唯一权威
+│   ├── 10-公式与转换器规范.md      命令白名单、实测行为
+│   └── 11-去AI味润色与humanizer交接.md  第 6 步的唯一细则
+├── templates/            6 份可复制模板（骨架 A/B、指标表、经费概算附件、随附清单、自检报告）
+├── examples/             2 份文体样板（五拍指标论证、研究现状演进链）
+└── tools/                4 个可用命令 + 公式引擎 + 默认排版配置
+```
+
+技能名必须是 kebab-case（`^[a-z0-9-]+$`），所以目录名是 `proposal-generator-cn`；中文显示名写在 description 里。
+
+## 已知边界
+
+- **只处理公开渠道信息与用户提供的脱密材料**：涉密指南不经互联网传播，不检索、不拼凑、不推测。
+- **不承诺通过率**：承诺的是"可直接进入评审的正文文体"，数值、事实、资质、盖章与程序性材料由申请人核实并承担责任。
+- **AI 使用须按制度声明**：基金委 2026 通告明文要求核实并标识生成内容、禁止直接提交生成文本；本技能不代替单位的合规判断。
+- **版本会漂移**：评分权重、经费口径、分数线都按已获取的原件记录，引用时须核对当年指南与当版工作规范。
+- 已获取的模板原件与真实参照件不在本仓库内，只保留可核验结论；需要原件时向用户索取路径。
 
 ## 版本
 
-v1.3.0（2026-10-25）· 详见 [CHANGELOG.md](CHANGELOG.md)
+v1.4.0（2026-11-09）：工作流改为七步，新增第 6 步 humanizer 语言层润色、`references/11`、`tools/check_style.py` 与四道交付关卡。历次变更见 [CHANGELOG.md](CHANGELOG.md)。
+
+## 许可
+
+MIT © 2026
